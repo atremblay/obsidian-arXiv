@@ -1,9 +1,9 @@
 {
 	"id": "arXiv-fetch",
 	"name": "arXiv Paper Info",
-	"version": "1.0.0",
+	"version": "0.1.0",
 	"minAppVersion": "0.15.0",
-	"description": "This plugin will fetch info from a paper hosted on arXiv",
+	"description": "This plugin will fetch info from a paper hosted on arXiv.",
 	"author": "Alexis Tremblay",
 	"isDesktopOnly": false
 }
