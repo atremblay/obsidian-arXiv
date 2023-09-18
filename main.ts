@@ -6,6 +6,7 @@ import * as path from 'path';
 
 interface ArXivPluginSettings {
 	mySetting: string;
+	enableRibbonIcon: boolean;
 }
 
 interface PaperData {
@@ -20,7 +21,8 @@ interface PaperData {
 }
 
 const DEFAULT_SETTINGS: ArXivPluginSettings = {
-	mySetting: ''
+	mySetting: '',
+	enableRibbonIcon: false,
 }
 
 class ArxivPlugin extends Plugin {
@@ -99,22 +101,8 @@ ${data.summary}
 	}
 	async onload() {
 		await this.loadSettings();
-
-		try {
-			const arXivLogo = await this.readSVGFile();
-			addIcon('arXiv', arXivLogo);
-
-			const ribbonIconEl = this.addRibbonIcon("arXiv", "arXiv fetch paper", () => {
-				new ArXivModal(this.app, (paperId, paperName) => {
-				this.fetchPaper(paperId, paperName);
-				}).open();
-			});
-			ribbonIconEl.addClass('my-plugin-ribbon-class');
-			//console.log('Received data:', data);
-		} catch (error) {
-			console.error('Error:', error);
-		}
-
+		this.arXivLogo = await this.readSVGFile();
+		this.enableRibbonIcon();
 
 		// This adds a status bar item to the bottom of the app. Does not work on mobile apps.
 		const statusBarItemEl = this.addStatusBarItem();
@@ -159,12 +147,27 @@ ${data.summary}
 			fs.readFile(filePath, 'utf8', (err, data) => {
 				if (err) {
 					console.error('Error reading SVG file:', err);
-					reject(err);
+					reject('');
 				} else {
 					resolve(data);
 				}
 			});
 		});
+	}
+
+	enableRibbonIcon(){
+		if (this.settings.enableRibbonIcon & this.arXivLogo != '') {
+
+			addIcon('arXiv', this.arXivLogo);
+			this.addRibbonIcon("arXiv", "arXiv fetch paper", () => {
+				new ArXivModal(this.app, (paperId, paperName) => {
+					this.fetchPaper(paperId, paperName);
+				}).open();
+			}).setAttribute('id', 'rb-arXiv-icon');
+		} else {
+			document.getElementById('rb-arXiv-icon')?.remove();
+		}
+
 	}
 }
 
@@ -183,14 +186,25 @@ class ArXivSettingTab extends PluginSettingTab {
 		containerEl.empty();
 
 		new Setting(containerEl)
-			.setName('Save path')
-			.setDesc('Enter the path where you want to save the file')
-			.addText(text => text
-				.setValue(this.plugin.settings.mySetting)
-				.onChange(async (value) => {
-					console.log('setting value: ', value);
-					this.plugin.settings.mySetting = value;
-					await this.plugin.saveSettings();
+		.setName('Save path')
+		.setDesc('Enter the path where you want to save the file')
+		.addText(
+			text => text
+			.setValue(this.plugin.settings.mySetting)
+			.onChange(async (value) => {
+				this.plugin.settings.mySetting = value;
+				await this.plugin.saveSettings();
+			}));
+
+		new Setting(containerEl)
+			.setName('Enable ribbon icon')
+			.addToggle(
+				(toggle) => toggle
+				.setValue(this.plugin.settings.enableRibbonIcon)
+				.onChange((value) => {
+					this.plugin.settings.enableRibbonIcon = value;
+					this.plugin.saveSettings();
+					this.plugin.enableRibbonIcon()
 				}));
 	}
 }
