@@ -20,11 +20,11 @@ interface PaperData {
 }
 
 const DEFAULT_SETTINGS: ArXivPluginSettings = {
-	mySetting: 'default'
+	mySetting: ''
 }
 
 class ArxivPlugin extends Plugin {
-	//settings: ArXivPluginSettings;
+	settings: ArXivPluginSettings;
 
 	async fetchPaper(paperId: string, paperName: string): Promise<void> {
 		if (paperId) {
@@ -59,7 +59,7 @@ class ArxivPlugin extends Plugin {
 							let summary = entry.querySelector('summary')?.textContent || 'No Summary';
 							summary = summary.replace(/(\r\n|\n|\r)/gm, " ").trim();
 							const pdfLink = xmlDoc.querySelector('link[title="pdf"]')?.getAttribute('href') || 'No PDF Link';
-							console.log("paperName: ", name);
+
 							if (name === undefined){
 								name = id;
 							}
@@ -94,11 +94,11 @@ paper: "${data.pdfLink}"
 ${data.summary}
 		`;
 
-		await this.app.vault.create(`${data.name}.md`, frontMatter + content);
+		await this.app.vault.create(`${this.settings.mySetting}/${data.name}.md`, frontMatter + content);
 		new Notice(`Created note: ${data.name}`);
 	}
 	async onload() {
-		//await this.loadSettings();
+		await this.loadSettings();
 
 		try {
 			const arXivLogo = await this.readSVGFile();
@@ -132,7 +132,7 @@ ${data.summary}
 		});
 
 		// This adds a settings tab so the user can configure various aspects of the plugin
-		//this.addSettingTab(new ArXivSettingTab(this.app, this));
+		this.addSettingTab(new ArXivSettingTab(this.app, this));
 
 	}
 
@@ -183,12 +183,12 @@ class ArXivSettingTab extends PluginSettingTab {
 		containerEl.empty();
 
 		new Setting(containerEl)
-			.setName('Setting #1')
-			.setDesc('It\'s a secret')
+			.setName('Save path')
+			.setDesc('Enter the path where you want to save the file')
 			.addText(text => text
-				.setPlaceholder('Enter your secret')
 				.setValue(this.plugin.settings.mySetting)
 				.onChange(async (value) => {
+					console.log('setting value: ', value);
 					this.plugin.settings.mySetting = value;
 					await this.plugin.saveSettings();
 				}));
