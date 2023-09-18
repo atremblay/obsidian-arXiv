@@ -16,6 +16,7 @@ interface PaperData {
   id: string;
   url: string;
   pdfLink: string;
+  name: string;
 }
 
 const DEFAULT_SETTINGS: ArXivPluginSettings = {
@@ -25,10 +26,10 @@ const DEFAULT_SETTINGS: ArXivPluginSettings = {
 class ArxivPlugin extends Plugin {
 	//settings: ArXivPluginSettings;
 
-	async fetchPaper(paperId: string): Promise<void> {
+	async fetchPaper(paperId: string, paperName: string): Promise<void> {
 		if (paperId) {
 			try {
-				const data = await this.fetchPaperData(paperId);
+				const data = await this.fetchPaperData(paperId, paperName);
 				await this.createNote(data);
 			} catch (error) {
 				console.error('Error fetching paper data:', error);
@@ -37,7 +38,7 @@ class ArxivPlugin extends Plugin {
 		}
 	}
 
-	fetchPaperData(id: string): Promise<PaperData> {
+	fetchPaperData(id: string, name:string): Promise<PaperData> {
 		return new Promise((resolve, reject) => {
 			const url = `http://export.arxiv.org/api/query?id_list=${id}`;
 				const xhr = new XMLHttpRequest();
@@ -55,10 +56,14 @@ class ArxivPlugin extends Plugin {
 							const publicationDateRaw = entry.querySelector('published')?.textContent;
 							const publicationDate = publicationDateRaw ? (new Date(publicationDateRaw)).toISOString().split('T')[0] : 'No Publication Date';
 							const url = entry.querySelector('id')?.textContent || 'No URL';
-							const summary = entry.querySelector('summary')?.textContent || 'No Summary';
+							let summary = entry.querySelector('summary')?.textContent || 'No Summary';
+							summary = summary.replace(/(\r\n|\n|\r)/gm, " ").trim();
 							const pdfLink = xmlDoc.querySelector('link[title="pdf"]')?.getAttribute('href') || 'No PDF Link';
-
-							resolve({ title, authors, publicationDate, summary , id, url, pdfLink});
+							console.log("paperName: ", name);
+							if (name === undefined){
+								name = id;
+							}
+							resolve({ title, authors, publicationDate, summary , id, url, pdfLink, name});
 						} else {
 							reject(new Error('No entry found in the response'));
 						}
@@ -89,8 +94,8 @@ paper: "${data.pdfLink}"
 ${data.summary}
 		`;
 
-		await this.app.vault.create(`${data.id}.md`, frontMatter + content);
-		new Notice(`Created note: ${data.id}`);
+		await this.app.vault.create(`${data.name}.md`, frontMatter + content);
+		new Notice(`Created note: ${data.name}`);
 	}
 	async onload() {
 		//await this.loadSettings();
@@ -98,11 +103,10 @@ ${data.summary}
 		try {
 			const arXivLogo = await this.readSVGFile();
 			addIcon('arXiv', arXivLogo);
-			addIcon("circle", `<circle cx="50" cy="50" r="50" fill="currentColor" />`);
 
 			const ribbonIconEl = this.addRibbonIcon("arXiv", "arXiv fetch paper", () => {
-				new ArXivModal(this.app, (paperId) => {
-				this.fetchPaper(paperId);
+				new ArXivModal(this.app, (paperId, paperName) => {
+				this.fetchPaper(paperId, paperName);
 				}).open();
 			});
 			ribbonIconEl.addClass('my-plugin-ribbon-class');
@@ -121,8 +125,8 @@ ${data.summary}
 			id: 'open-arXiv-modal',
 			name: 'Fetch arXiv paper info',
 			callback: () => {
-				new ArXivModal(this.app, (paperId) => {
-				this.fetchPaper(paperId);
+				new ArXivModal(this.app, (paperId, paperName) => {
+				this.fetchPaper(paperId, paperName);
 				}).open();
 			}
 		});
@@ -192,10 +196,11 @@ class ArXivSettingTab extends PluginSettingTab {
 }
 
 class ArXivModal extends Modal {
-  result: string;
+  arXivID: string;
+  paperName: string;
   onSubmit: (result: string) => void;
 
-  constructor(app: App, onSubmit: (result: string) => void) {
+  constructor(app: App, onSubmit: (arXivID: string, paperName: string) => void) {
     super(app);
     this.onSubmit = onSubmit;
   }
@@ -208,7 +213,14 @@ class ArXivModal extends Modal {
       .setName("arXiv id:")
       .addText((text) =>
         text.onChange((value) => {
-          this.result = value
+          this.arXivID = value
+        }));
+
+    new Setting(contentEl)
+      .setName("Paper name (optional):")
+      .addText((text) =>
+        text.onChange((value) => {
+          this.paperName = value
         }));
 
     new Setting(contentEl)
@@ -218,7 +230,7 @@ class ArXivModal extends Modal {
           .setCta()
           .onClick(() => {
             this.close();
-            this.onSubmit(this.result);
+            this.onSubmit(this.arXivID, this.paperName);
           }));
   }
 
