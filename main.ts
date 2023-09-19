@@ -1,4 +1,4 @@
-import { App, Editor, MarkdownView, addIcon, Modal, Notice, Plugin, PluginSettingTab, Setting } from 'obsidian';
+import { App, addIcon, Modal, Notice, Plugin, PluginSettingTab, Setting } from 'obsidian';
 import * as fs from 'fs';
 import * as path from 'path';
 
@@ -101,12 +101,6 @@ ${data.summary}
 	}
 	async onload() {
 		await this.loadSettings();
-		this.arXivLogo = await this.readSVGFile();
-		this.enableRibbonIcon();
-
-		// This adds a status bar item to the bottom of the app. Does not work on mobile apps.
-		const statusBarItemEl = this.addStatusBarItem();
-		statusBarItemEl.setText('Status Bar Text');
 
 		// This adds a simple command that can be triggered anywhere
 		this.addCommand({
@@ -121,6 +115,7 @@ ${data.summary}
 
 		// This adds a settings tab so the user can configure various aspects of the plugin
 		this.addSettingTab(new ArXivSettingTab(this.app, this));
+		await this.enableRibbonIcon();
 
 	}
 
@@ -155,10 +150,11 @@ ${data.summary}
 		});
 	}
 
-	enableRibbonIcon(){
-		if (this.settings.enableRibbonIcon & this.arXivLogo != '') {
+	async enableRibbonIcon(){
+		const arXivLogo = await this.readSVGFile();
+		if (this.settings.enableRibbonIcon && arXivLogo != '') {
 
-			addIcon('arXiv', this.arXivLogo);
+			addIcon('arXiv', arXivLogo);
 			this.addRibbonIcon("arXiv", "arXiv fetch paper", () => {
 				new ArXivModal(this.app, (paperId, paperName) => {
 					this.fetchPaper(paperId, paperName);
